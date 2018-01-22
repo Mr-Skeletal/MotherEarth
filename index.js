@@ -20,10 +20,6 @@ const Nation = class {
         this.gold = gold;
         this.citizens = citizens;
         this.defense = defense;
-        this.owner = owner;
-        this.military = 0;
-        this.timeSinceTax = 0;
-        this.timeSinceAttack = 0;
     }
 };
 const Command = class {
