@@ -11,6 +11,7 @@ var COMMAND_PREFIX = "$"
 var activeServer
 var ttsOn = false
 //ME bot NDAzMjQ5NDAwODkxMDQ3OTM2.DUEi-g.NjlZ7KEHXr5UMk1OsTFCbutCCV4
+//NFB MzYzMTYwMDY5MzA4OTQwMjg5.DUXemQ.oOZbgxEslxUGSzrgeTIwkjOMQZE
 client.login('NDAzMjQ5NDAwODkxMDQ3OTM2.DUEi-g.NjlZ7KEHXr5UMk1OsTFCbutCCV4');
 var markList = {};
 var votes = {};
@@ -31,6 +32,7 @@ var moneyLogo = ":dollar:";
 var moneyPath = botDir + "/Data/Money.txt";
 var nationsPath = botDir + "/Data/Nations.txt";
 var nationsUserPath = botDir + "/Data/NationsUserData.txt";
+var nationsSettingsPath = botDir + "/Data/NationsSettings.txt";
 var Infection = false;
 var InfData = {};
 var fightList = {};
@@ -130,55 +132,59 @@ function takeMoney(user,ammount){
 }
 
 
-addCommand(m => m.indexOf('say ') === 0, msg => {
-    var args = msg.content.split("$say ");
-    msg.delete();
-    msg.channel.send(args[1]);
-}, 1);
-
 class Nation{
     constructor(HP,income,citizens,def,owner){
         this.HP = HP;
         this.income = income;
         this.citizens = citizens;
-        this.def = def
+        this.def = def;
         this.atk = 0;
         this.timeSinceLastTax = 0;
-        this.taken = false;
         this.owner = owner;
         this.timeSinceAttack = 0;
+        this.flag = "https://www.shareicon.net/data/256x256/2015/11/09/669568_flag_512x512.png";
+        this.slogan = "";
     }
 }
 //[effect,price]
 var settings = {
     "store" : {
         "atk":{
+            "style":["https://www.shareicon.net/data/256x256/2016/01/26/709026_sport_512x512.png","#4f0000"],
             "slave":[1,10,"atk"],
             "soldier":[4,40,"atk"],
             "airplane":[15,100,"atk"],
             "anti-air":[55,500,"atk"],
             "missile":[110,1000,"atk"],
             "nuke":[510,5000,"atk"],
-            "tsar-bomba":[1200,10000,"atk"]
+            "tsar-bomba":[1200,10000,"atk"],
+            "hacker":[3750,25000,"atk"],
+            "virus":[5000,40000,"atk"],
+            "orbital-cannon":[10000,80000,"atk"],
+            "spaceShip":[15000,135000,"atk"],
         },
         "def":{
+            "style":["https://www.shareicon.net/data/256x256/2015/09/21/644384_shield_512x512.png","#5fa1e2"],
             "fence":[1,10,"def"],
             "watch-tower":[2,20,"def"],
             "wood-wall":[5,60,"def"],
             "stone-wall":[7,90,"def"],
             "patrol":[4,40,"def"],
-            "anti-air":[12,100,"def"],
-            "radar":[60,500,"def"]
+            "anti-air":[50,400,"def"],
+            "radar":[500,4000,"def"],
+            "shield":[750,6000,"def"],
         },
         "hp":{
+            "style":["https://www.shareicon.net/data/256x256/2016/06/20/783694_medical_512x512.png","#ff6060"],
             "wood":[5,20,"HP"],
             "stone":[10,30,"HP"],
-            "bicks":[20,60,"HP"],
+            "bricks":[20,60,"HP"],
             "supply-shipment":[55,200,"HP"],
             "aid":[110,300,"HP"],
             "shield":[233,700,"HP"],
         },
         "citizen":{
+            "style":["https://www.shareicon.net/data/256x256/2015/08/23/89623_person_512x512.png","#fffab7"],
             "slaves":[2,10,"citizens"],
             "farming":[4,20,"citizens"],
             "housing":[6,30,"citizens"],
@@ -186,11 +192,24 @@ var settings = {
             "village":[24,100,"citizens"],
             "town":[44,200,"citizens"],
             "city":[66,300,"citizens"],
-            "mega-city":[106,530,"citizens"]
+            "metropolis":[106,530,"citizens"],
+            "artificial-island":[510,2500,"citizens"],
+            "space-colony":[1015,5000,"citizens"],
+            "planet-colony":[5020,25000,"citizens"],
+            "simulated-reality":[10000,400000,"citizens"],
+            "universe-in-a-box":[2000000,8000000,"citizens"],
         }
     },
-    
-}
+    "commands" : {
+        "give" : true,
+        "attack" : true,
+    },
+    "nations" : {
+        "taxWait" : 1,
+        "userTweaking" : true,
+        "AI" : false
+    }
+};
 
 function canAfford(nation,price){
     if(nation["income"] >= price){
@@ -198,11 +217,6 @@ function canAfford(nation,price){
     }else{
         return false;
     }
-}
-
-function chanceOfDisasterHappening(){
-if (citizens >= 5000) return .8
-return Math.pow(citizens, 2.5) / 2.208604e9
 }
 
 function warEq(atk,def,HP,atkEN){
@@ -213,18 +227,12 @@ function warEq(atk,def,HP,atkEN){
 }
 
 addCommand(m => m.indexOf('attack') === 0, msg => {
-    
-    if(!isCitizen(msg)){return;}
-    
-    /**
-    if(nations["timeSinceAttack"] - 2 > minutes){nations["timeSinceAttack"] = 0}
-    if(nations["timeSinceAttack"] <= minutes){
-        nations["timeSinceAttack"] = minutes + 2;
-    }else{
-        msg.reply("you can attack in " +  (nations["timeSinceAttack"] - minutes) + " minutes!" ); 
+    var nationsSettings = JSON.parse(fileread(nationsSettingsPath));
+    if(nationsSettings[msg.guild.id] !== undefined && nationsSettings[msg.guild.id]["commands"]["attack"] == false){
+        msg.reply("The server owner/admins have disabled this feature!")
         return;
     }
-    **/
+    if(!isCitizen(msg)){return;}
     
     var nations = JSON.parse(fileread(nationsPath));
     var args = msg.content.split(" ");
@@ -241,21 +249,81 @@ addCommand(m => m.indexOf('attack') === 0, msg => {
         
         if(current == targetID){return;}
         if(nations[msg.guild.id][targetID] == undefined){msg.reply("that isnt a country!"); return;}
-        
+        nations[msg.guild.id][current]["atk"] -= Math.floor(Math.random() * nations[msg.guild.id][current]["atk"])
         nations[msg.guild.id][targetID]["HP"] = warEq(nations[msg.guild.id][targetID]["atk"],nations[msg.guild.id][targetID]["def"],nations[msg.guild.id][targetID]["HP"],nations[msg.guild.id][current]["atk"]);
-        msg.channel.send(target + " is at " + nations[msg.guild.id][targetID]["HP"] + "HP!");
+        msg.channel.send(target + " is at " + nations[msg.guild.id][targetID]["HP"] + "HP! " + nations[msg.guild.id][current]["atk"] +  "atk left!");
         msg.guild.channels.get(targetID).send('** ' + msg.channel.name + ' attacks!  "$attack #channel" to fight back!**');
         msg.guild.channels.get(targetID).sendMessage(target + " is at " + nations[msg.guild.id][targetID]["HP"] + "HP!");
         
         if(nations[msg.guild.id][targetID]["HP"] <= 0){
+            var newOwn = msg.channel.name;
+            if(nations[msg.guild.id][current]["owner"] !== msg.channel.name){
+                newOwn = nations[msg.guild.id][current]["owner"];
+            }
             nations[msg.guild.id][targetID]["HP"] = 500;
-            nations[msg.guild.id][targetID]["owner"] = msg.channel.name;
+            nations[msg.guild.id][targetID]["owner"] = newOwn;
             msg.guild.channels.get(targetID).sendMessage("Now property of " + msg.channel.name + " $join.");
             msg.guild.channels.get(targetID).setTopic("Property of " + msg.channel.name);
         }
         fs.writeFile(nationsPath, JSON.stringify(nations), 'utf8');
     }
     
+}, 1);
+
+addCommand(m => m.indexOf('set') === 0, msg => {
+    if(!msg.member.permissions.has("ADMINISTRATOR")){
+        msg.reply("admins only!");
+        return;
+    }
+    var setCopy = settings;
+    var nationsSettings = JSON.parse(fileread(nationsSettingsPath));
+    var hasCustom = nationsSettings[msg.guild.id] !== undefined;
+    if(!hasCustom){
+        nationsSettings[msg.guild.id] = {}
+        //make custom OBJ
+    }
+    //-set | store | hp | -/=/+ | item
+    //-set $default
+    var args = msg.content.split(" | ");
+    if(args[1] == "$default"){
+        
+        nationsSettings[msg.guild.id] = setCopy;
+        fs.writeFile(nationsSettingsPath, JSON.stringify(nationsSettings), 'utf8');
+        msg.reply("Settings have been restored to their default values!")
+        return;
+    }
+    var setItem, NewItem, path = [];
+    console.log("Established vars");
+    for(var i in args){
+        if(setItem !== undefined){
+            NewItem = args[i];
+            break;
+        }
+        if(args[i] == "="){
+            setItem = args[i];
+        }
+        if(args[i] !== "$set" && setItem == undefined){
+            path.push(args[i])
+        }
+    }
+    if(NewItem[0] == "{"){
+        NewItem = JSON.parse(NewItem);
+    }
+    console.log("Established path");
+    var current = settings;
+    for(var i in path){
+        if(i == path.length - 1){
+            current[path[i]] = NewItem;
+            console.log(current[path[i]]);
+        }else{
+            current = current[path[i]];  
+        }
+    }
+    nationsSettings[msg.guild.id] = settings;
+    settings = setCopy;
+    fs.writeFile(nationsSettingsPath, JSON.stringify(nationsSettings), 'utf8');
+    msg.reply("The new changes have been saved!")
+    //console.log(settings);
 }, 1);
 
 addCommand(m => m.indexOf('join') === 0, msg => {
@@ -284,33 +352,36 @@ addCommand(m => m.indexOf('join') === 0, msg => {
     fs.writeFile(nationsUserPath, JSON.stringify(nationUsers), 'utf8');
 }, 1);
 
-addCommand(m => m.indexOf('ETC') === 0, msg => {
-    var nations = JSON.parse(fileread(nationsPath));
-	var args = msg.content.split(" ");
-    var type = args[1];
-    if(type !== "vote"){
-        
-    }
-    if(nations[msg.guild.id + " ETC"] === undefined){
-        nations[msg.guild.id + " ETC"] = {};
-    }
-    
-    
-}, 1);
-
 addCommand(m => m.indexOf('restart') === 0, msg => {
 	var args = msg.content.split(" ");
     var reason = args[1];
-    msg.reply("Wants to restart the game! Reason: " + reason + " (Not real vote)")
-    msg.react(":small_red_triangle:")
-    msg.react(":small_red_triangle_down:")
+    msg.reply("Wants to restart the game! Reason: " + reason).then(function(){
+        msg.react("👍")
+        msg.react("👎")
+    });
+    
+}, 1);
+
+addCommand(m => m.indexOf('forceRestart') === 0, msg => {
+    if(!msg.member.permissions.has("ADMINISTRATOR")){
+        msg.reply("admins only!");
+        return;
+    }
+    //new Nation(1000,10,5,1,msg.channel.name);
+	var nations = JSON.parse(fileread(nationsPath));
+    for(var i in nations[msg.guild.id]){
+        nations[msg.guild.id][i] = new Nation(1000,10,5,1,msg.channel.name);
+    }
+    fs.writeFile(nationsUserPath, JSON.stringify(nationUsers), 'utf8');
 }, 1);
 
 function isCitizen(msg){
     var nations = JSON.parse(fileread(nationsPath));
     var nationUsers = JSON.parse(fileread(nationsUserPath));
     var ownsNation = msg.guild.channels.get(nationUsers[msg.guild.id][msg.author.id]).name == nations[msg.guild.id][msg.channel.id]["owner"];
-    if(nationUsers[msg.guild.id] == undefined || nationUsers[msg.guild.id][msg.author.id] == undefined || !ownsNation){
+    console.log(msg.guild.channels.get(nations[msg.guild.id][msg.channel.id]["owner"]) == null);
+    if(ownsNation){return true;}
+    if(nationUsers[msg.guild.id] == undefined || nationUsers[msg.guild.id][msg.author.id] == undefined || nationUsers[msg.guild.id][msg.author.id] !== msg.channel.id){
         msg.reply("You are not in this nation! $join");
         return false;
     }else{
@@ -319,9 +390,17 @@ function isCitizen(msg){
 }
 
 addCommand(m => m.indexOf('store') === 0, msg => {
+    var embed = new Discord.RichEmbed()
+                    .setDescription("**__Store Categories__**")
+                    .setColor("GREEN")
+                    .setThumbnail("https://www.shareicon.net/data/256x256/2015/10/05/651221_money_512x512.png");
+    var nationsSettings = JSON.parse(fileread(nationsSettingsPath));
+    if(nationsSettings[msg.guild.id] == undefined){
+        nationsSettings[msg.guild.id] = settings;
+    }
     if(!isCitizen(msg)){return;}
     var tot = "";
-    var store = settings["store"];
+    var store = nationsSettings[msg.guild.id]["store"];
     var args = msg.content.split(" ");
     target = args[1];
     var ammount = args[3];
@@ -356,33 +435,46 @@ addCommand(m => m.indexOf('store') === 0, msg => {
     }
     
     if(store[args[1]] == undefined || args[1] == undefined && args[2] == undefined){
-        msg.channel.send("```You can say $store X to see what they have!```")
+        //msg.channel.send("```You can say $store X to see what they have!```")
         for(var i in store){
-            tot += "**"+i+"**";
-            tot += "\n";
+            embed.addField("**"+i+"**","$store " + i);
         }
-        msg.channel.send(tot)
+        msg.channel.send(embed)
     }
     if(store[args[1]] !== undefined && args[2] == undefined){
-        msg.channel.send('```You can say "$store X Y" to buy!```')
+        //msg.channel.send('```You can say "$store X Y" to buy!```')
         var cat = store[args[1]];
+        embed.setThumbnail(cat["style"][0])
+        embed.setColor(cat["style"][1])
+        embed.setDescription("**__"+ args[1] +" category__**")
         for(var i in cat){
-            tot += "**"+ i + " +" + cat[i][0] + cat[i][2] + " -" + cat[i][1] + "income" +"**"
-            tot += "\n"
+            if(i !== "style"){
+                embed.addField("**"+ i +"**","+"+cat[i][0] + cat[i][2] +", "+ " -" + cat[i][1] + "income")
+            }
         }
-        msg.channel.send(tot)
+        
+        msg.channel.send(embed)
     }
     
     
 }, 1);
 
 addCommand(m => m.indexOf('give') === 0, msg => {
+    var nationsSettings = JSON.parse(fileread(nationsSettingsPath));
+    if(nationsSettings[msg.guild.id] !== undefined && nationsSettings[msg.guild.id]["commands"]["give"] == false){
+        msg.reply("The server owner/admins have disabled this feature!")
+        return;
+    }
     if(!isCitizen(msg)){return;}
 	var nations = JSON.parse(fileread(nationsPath));
     var args = msg.content.split(" ");
     var target = args[1], gift = args[2], ammount = args[3];
 	curNation = nations[msg.guild.id][msg.channel.id];
     var targetID = target.replace("<","").replace("#","").replace(">","")
+    if(args[2] !== "income" && args[2] !== "citizens" && args[2] !== "atk" && args[2] !== "def"){
+        msg.reply("Invalid Args!")
+        return;
+    }
     if(curNation[args[2]] == undefined || curNation[args[2]] <= 0 || args[3] > curNation[args[2]] || args[3] <= 0){msg.reply("Invalid args"); return;}
     nations[msg.guild.id][targetID][args[2]] += Math.abs(args[3]);
     curNation[args[2]] -= Math.abs(args[3]);
@@ -404,24 +496,30 @@ addCommand(m => m.indexOf('clear') === 0, msg => {
     fs.writeFile(nationsUserPath, JSON.stringify(nationUsers), 'utf8');
 }, 1);
 
-
-
 addCommand(m => m.indexOf('tax') === 0, msg => {
     if(!isCitizen(msg)){return;}
+    var embed = new Discord.RichEmbed()
+                    .setDescription("**__Tax Time!__**")
+                    .setColor("GREEN")
+                    .setThumbnail("https://www.shareicon.net/data/256x256/2015/11/29/679749_hand_512x512.png");
     var curMin = minutes;
 	var nations = JSON.parse(fileread(nationsPath));
     var inGain;
-    var upBy = 2;
+    var nationsSettings = JSON.parse(fileread(nationsSettingsPath));
+    var upBy = parseInt(nationsSettings[msg.guild.id]["nations"]["taxWait"]);
 	nation = nations[msg.guild.id][msg.channel.id];
     if(nation["timeSinceLastTax"] - upBy > curMin){nation["timeSinceLastTax"] = 0}
     if(nation["timeSinceLastTax"] <= curMin){
         inGain = Math.floor(nation["citizens"] * 1.4);
         nation["income"] += inGain;
-        msg.reply("You got " + inGain + " income! \n you have " + nation["income"] + " currently!");
+        embed.addField("Success!","You got " + inGain + " income!\n **you have " + nation["income"] + " currently!**");
+        msg.channel.send(embed)
         nation["timeSinceLastTax"] = curMin + upBy;
         fs.writeFile(nationsPath, JSON.stringify(nations), 'utf8');
     }else{
-        msg.reply("you can tax in " + (Math.abs(minutes - nation["timeSinceLastTax"])) + " minutes")
+        embed.addField("Failure!","you can tax in " + (Math.abs(minutes - nation["timeSinceLastTax"])) + " minutes");
+        embed.setColor("RED")
+        msg.channel.send(embed)
     }
 }, 1);
 
@@ -480,18 +578,6 @@ addCommand(m => m.indexOf('add') === 0, msg => {
 
 addCommand(m => m.indexOf('help') === 0, msg => {
     msg.channel.send("Commands: https://pastebin.com/byFa5nsu");
-}, 1);
-addCommand(m => m.indexOf('bank') === 0, msg => {
-    //console.log(fileread("Data/Money.txt").toString().split(','));
-    var user = msg.author.id;
-    var sheet = JSON.parse(fileread(moneyPath));
-    var found = false;
-    if(sheet[msg.author.id] !== undefined){
-    msg.channel.send(msg.author + " has " + sheet[msg.author.id] + moneyLogo);
-    }else{
-        msg.channel.send(msg.author + " **Nigga You Broke** ");
-    }
-	
 }, 1);
 function newVar(v,n){
     v = n;
@@ -584,8 +670,6 @@ addCommand(m => m.indexOf('cmd') === 0, msg => {
         msg.channel.send('Im sorry ' + msg.author + " I cant let you do that.");
     }
 }, 1);
-
-addCommand(m => m.includes('y/n'), msg => GetSimpJson("answer","https://yesno.wtf/api/").then(meme => msg.channel.send(meme)),1);
 
 function messageReceived(msg) {
     
@@ -696,7 +780,7 @@ function messageReceived(msg) {
     
 	try {
 		
-		if (msg.author.id === client.user.id || (activeServer && msg.guild.id !== activeServer.id)) return;
+		if (msg.author.id === client.user.id) return;
 		var userIsAdmin = msg.member.hasPermission(8)
 		var m = msg.content.trim().toLowerCase();
 		var c = commands.find(command => command.expression(command.requiresPrefix ? m.substring(1) : m) && (!command.requiresPrefix || m.startsWith(COMMAND_PREFIX)) && (userIsAdmin || !command.requiresAdmin));
