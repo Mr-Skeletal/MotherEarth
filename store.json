@@ -1,0 +1,38 @@
+{
+    "military": {
+        "slave": [1, 10],
+        "soldier": [4, 40],
+        "airplane": [15, 100],
+        "anti-air": [55, 500],
+        "missile": [110, 1000],
+        "nuke": [510, 5000],
+        "tsar-bomba": [1200, 10000]
+    },
+    "defense": {
+        "fence": [1, 10],
+        "watch-tower": [2, 20],
+        "wood-wall": [5, 60],
+        "stone-wall": [7, 90],
+        "patrol": [4, 40],
+        "anti-air": [12, 100],
+        "radar": [60, 500]
+    },
+    "health": {
+        "wood": [5, 20],
+        "stone": [10, 30],
+        "bicks": [20, 60],
+        "supply-shipment": [55, 200],
+        "aid": [110, 300],
+        "shield": [233, 700]
+    },
+    "citizens": {
+        "slave": [2,10],
+        "farming": [4, 20],
+        "housing": [6, 30],
+        "hotel": [12, 50],
+        "village": [24, 100],
+        "town": [44, 200],
+        "city": [66, 300],
+        "mega-city": [106, 530]
+    }
+}
